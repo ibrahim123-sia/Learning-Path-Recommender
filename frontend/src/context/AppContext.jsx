@@ -10,7 +10,7 @@ export const AppProvider = ({ children }) => {
   
   // Create axios instance
   const axiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_SERVER_URL || 'http://localhost:5000',
+    baseURL: import.meta.env.VITE_SERVER_URL || 'https://learning-path-recommender.vercel.app/',
     timeout: 30000,
   });
 
