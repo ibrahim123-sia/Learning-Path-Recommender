@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://learning-path-recommender.vercel.app/api';
 
 const HomePage = () => {
   const [stats, setStats] = useState({ generatedPaths: 0, averageWeeks: 4 });

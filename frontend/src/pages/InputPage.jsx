@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UserInputForm from '../components/UserInputForm';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://learning-path-recommender.vercel.app/api';
 
 const InputPage = () => {
   const navigate = useNavigate();

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoadmapDisplay from '../components/RoadmapDisplay';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://learning-path-recommender.vercel.app/api';
 
 const ResultPage = () => {
   const location = useLocation();
