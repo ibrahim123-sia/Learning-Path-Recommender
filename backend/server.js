@@ -4,11 +4,15 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true
-}));
+// Middleware - Updated for Vercel
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://skillbridge-ai.vercel.app', // Your Vercel frontend URL
+  'https://skillbridge-app.vercel.app', // Alternative common name
+  process.env.FRONTEND_URL // Allow from environment variable
+].filter(Boolean);
+
+app.use(cors())
 app.use(express.json());
 
 // Check API key
@@ -20,7 +24,10 @@ if (!process.env.GROQ_API_KEY) {
   console.log('GROQ_API_KEY=your_groq_key_here');
   console.log('');
   console.log('🔑 Get FREE key: https://console.groq.com/keys');
-  process.exit(1);
+  // Don't exit in production (Vercel), just warn
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 }
 
 // List of WORKING GROQ models
@@ -33,6 +40,34 @@ const WORKING_GROQ_MODELS = [
   'llama-3.2-90b-vision-preview', // Very capable (slower)
 ];
 
+// Root route - NEW for Vercel
+app.get('/', (req, res) => {
+  res.json({
+    service: 'SkillBridge AI API',
+    status: 'operational',
+    provider: 'GROQ AI',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    documentation: 'Access /api/health for detailed service status',
+    endpoints: [
+      'GET  /api/health',
+      'GET  /api/goals',
+      'GET  /api/backgrounds',
+      'GET  /api/time-options',
+      'GET  /api/models',
+      'POST /api/generate-path',
+      'POST /api/save-path',
+      'POST /api/test-ai'
+    ],
+    quickStart: {
+      testHealth: 'curl https://your-api.vercel.app/api/health',
+      testModels: 'curl https://your-api.vercel.app/api/models',
+      generatePath: 'curl -X POST https://your-api.vercel.app/api/generate-path -H "Content-Type: application/json" -d \'{"goal":"Become a Junior Web Developer","background":"beginner","timeCommitment":"5-10"}\''
+    }
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -40,7 +75,12 @@ app.get('/api/health', (req, res) => {
     service: 'SkillBridge API',
     timestamp: new Date().toISOString(),
     provider: 'GROQ',
-    models: WORKING_GROQ_MODELS.length
+    models: WORKING_GROQ_MODELS.length,
+    environment: process.env.NODE_ENV || 'development',
+    apiKeyConfigured: !!process.env.GROQ_API_KEY,
+    memoryUsage: process.memoryUsage(),
+    nodeVersion: process.version,
+    corsOrigins: allowedOrigins
   });
 });
 
@@ -390,31 +430,83 @@ app.get('/api/models', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log('🚀 SKILLBRIDGE API - GROQ AI BACKEND');
-  console.log('='.repeat(60));
-  console.log(`📡 Server: http://localhost:${PORT}`);
-  console.log(`⚡ AI Provider: GROQ`);
-  console.log(`🤖 Working Models: ${WORKING_GROQ_MODELS.length} available`);
-  console.log(`🔑 API Key: ${process.env.GROQ_API_KEY ? '✅ Configured' : '❌ Missing'}`);
-  console.log('');
-  console.log('📚 ENDPOINTS:');
-  console.log(`   • GET  /api/health`);
-  console.log(`   • GET  /api/goals`);
-  console.log(`   • GET  /api/backgrounds`);
-  console.log(`   • GET  /api/time-options`);
-  console.log(`   • GET  /api/models`);
-  console.log(`   • POST /api/generate-path`);
-  console.log(`   • POST /api/save-path`);
-  console.log(`   • POST /api/test-ai`);
-  console.log('');
-  console.log('💡 RECOMMENDED MODEL: llama-3.2-3b-preview (fast & capable)');
-  console.log('');
-  console.log('🧪 Quick Tests:');
-  console.log(`   curl http://localhost:${PORT}/api/health`);
-  console.log(`   curl http://localhost:${PORT}/api/models`);
-  console.log(`   curl -X POST http://localhost:${PORT}/api/test-ai -H "Content-Type: application/json" -d '{}'`);
-  console.log('='.repeat(60));
+// 404 handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    requestedUrl: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    availableRoutes: [
+      'GET  /',
+      'GET  /api/health',
+      'GET  /api/goals',
+      'GET  /api/backgrounds',
+      'GET  /api/time-options',
+      'GET  /api/models',
+      'POST /api/generate-path',
+      'POST /api/save-path',
+      'POST /api/test-ai'
+    ],
+    documentation: 'Visit the root route (/) for API documentation'
+  });
 });
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('🔥 Server Error:', err.stack);
+  
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    timestamp: new Date().toISOString()
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+
+// Vercel compatibility - export the app for serverless functions
+if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  // For Vercel/production, export as serverless function
+  module.exports = app;
+} else {
+  // For local development, start the server
+  app.listen(PORT, () => {
+    console.log('='.repeat(60));
+    console.log('🚀 SKILLBRIDGE API - GROQ AI BACKEND');
+    console.log('='.repeat(60));
+    console.log(`📡 Server: http://localhost:${PORT}`);
+    console.log(`⚡ AI Provider: GROQ`);
+    console.log(`🤖 Working Models: ${WORKING_GROQ_MODELS.length} available`);
+    console.log(`🔑 API Key: ${process.env.GROQ_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+    console.log(`🌍 CORS Origins: ${allowedOrigins.join(', ')}`);
+    console.log('');
+    console.log('📚 ENDPOINTS:');
+    console.log(`   • GET  /`);
+    console.log(`   • GET  /api/health`);
+    console.log(`   • GET  /api/goals`);
+    console.log(`   • GET  /api/backgrounds`);
+    console.log(`   • GET  /api/time-options`);
+    console.log(`   • GET  /api/models`);
+    console.log(`   • POST /api/generate-path`);
+    console.log(`   • POST /api/save-path`);
+    console.log(`   • POST /api/test-ai`);
+    console.log('');
+    console.log('💡 RECOMMENDED MODEL: llama-3.2-3b-preview (fast & capable)');
+    console.log('');
+    console.log('🧪 Quick Tests:');
+    console.log(`   curl http://localhost:${PORT}`);
+    console.log(`   curl http://localhost:${PORT}/api/health`);
+    console.log(`   curl http://localhost:${PORT}/api/models`);
+    console.log(`   curl -X POST http://localhost:${PORT}/api/test-ai -H "Content-Type: application/json" -d '{}'`);
+    console.log('='.repeat(60));
+    console.log('\n💡 Tip: For Vercel deployment:');
+    console.log('   1. Run: vercel');
+    console.log('   2. Set environment variables in Vercel dashboard:');
+    console.log('      - GROQ_API_KEY');
+    console.log('      - FRONTEND_URL (optional)');
+    console.log('='.repeat(60));
+  });
+}
